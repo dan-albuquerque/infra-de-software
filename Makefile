@@ -1,18 +1,25 @@
+EXECUTABLE = banker
+
 CC = gcc
-CFLAGS = -Wall -pthread
 
-SRCS = banker.c
-OBJS = $(SRCS:.c=.o)
+CFLAGS = -Wall -Wextra
 
-TARGET = banker
+SRC_DIR = .
 
-all: $(TARGET)
+# Obtenha todos os arquivos-fonte no diretório SRC_DIR
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+# Obtenha todos os arquivos-objeto
+OBJECTS = $(SOURCES:.c=.o)
 
+# Regra padrão para construir o executável
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# Regra para construir os arquivos-objeto
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Remove os arquivos-objeto e o executável
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJECTS) $(EXECUTABLE)
