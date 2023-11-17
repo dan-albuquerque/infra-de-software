@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #define MAX_CUSTOMERS 10
 #define MAX_RESOURCES 10
 //lembre de tirar \n dos arquivos
@@ -35,7 +37,7 @@ int need[MAX_CUSTOMERS][MAX_RESOURCES];
 void readMaximumFromFile(const char *filename, int num_resources, int num_customers);
 int requestResources(int customer, int request[MAX_RESOURCES], int num_resources, int num_customers);
 int releaseResources(int customer, int release[MAX_RESOURCES], int num_resources);
-void printState(int num_resources,int num_customers);
+void printState(int num_resources, int num_customers, FILE *result_file);
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -51,7 +53,6 @@ int main(int argc, char *argv[]) {
     int customer, request[MAX_RESOURCES], release[MAX_RESOURCES];
 
     readMaximumFromFile("customer.txt", num_resources, num_customers);
-
     
     FILE *command_file = fopen("commands.txt", "r");
     if (command_file == NULL) {
@@ -79,14 +80,18 @@ int main(int argc, char *argv[]) {
                 }
                 fprintf(result_file, "\n");
             } else if (banker_safe == 2){
-                fprintf(result_file, "Request denied due to unsafe state.\n");
+                fprintf(result_file, "The customer %d request ", customer);
+                for (int i = 0; i < num_resources; ++i) {
+                    fprintf(result_file, "%d ", request[i]);
+                }
+                fprintf(result_file, "was denied because result in an unsafe state \n");
 
             } else {
                 fprintf(result_file, "The customer %d request ", customer);
                 for (int i = 0; i < num_resources; ++i) {
                     fprintf(result_file, "%d ", request[i]);
                 }
-                fprintf(result_file, "was denied because exceed its maximum need\n");
+                fprintf(result_file, "was denied because exceed its maximum need \n");
             }
         } else if (strcmp(command, "RL") == 0) {
             fscanf(command_file, "%d", &customer);
@@ -100,15 +105,14 @@ int main(int argc, char *argv[]) {
                 }
                 fprintf(result_file, "\n");
             } else {
-                fprintf(result_file, "Invalid release request.\n");
+                fprintf(result_file, "Invalid release request. \n");
             }
         } else if (strcmp(command, "*") == 0) {
-            printState(num_resources, num_customers);
+            printState(num_resources, num_customers, result_file);
         } else {
-            fprintf(result_file, "Invalid command. Please enter RQ, RL, Status, or Exit.\n");
+            fprintf(result_file, "Invalid command. Please enter RQ, RL, Status, or Exit. \n");
         }
     }
-
     fclose(result_file);
     fclose(command_file);
     return 0;
@@ -138,7 +142,6 @@ void readMaximumFromFile(const char *filename, int num_resources, int num_custom
             allocation[i][j] = 0;
             need[i][j] = maximum[i][j];
         }
-        printf("\n");
     }
 
     fclose(file);
@@ -232,34 +235,25 @@ int releaseResources(int customer, int release[MAX_RESOURCES], int num_resources
     return 1; 
 }
 
-void printState(int num_resources,int num_customers) {
-    printf("Available resources: ");
+void printState(int num_resources, int num_customers, FILE *result_file) {
+    fprintf(result_file, "MAXIMUM | ALLOCATION | NEED\n");
+    for (int i = 0; i < num_customers; ++i) {
+        for (int j = 0; j < num_resources; ++j) {
+            fprintf(result_file, "%d ", maximum[i][j]);
+        }
+        fprintf(result_file, "  | ");
+        for (int j = 0; j < num_resources; ++j) {
+            fprintf(result_file, "%d ", allocation[i][j]);
+        }
+        fprintf(result_file, "     | ");
+        for (int j = 0; j < num_resources; ++j) {
+            fprintf(result_file, "%d ", need[i][j]);
+        }
+        fprintf(result_file, "\n");
+    }
+    fprintf(result_file, "AVAILABLE ");
     for (int i = 0; i < num_resources; ++i) {
-        printf("%d ", available[i]);
+        fprintf(result_file, "%d ", available[i]);
     }
-    printf("\n");
-
-    printf("Maximum resources:\n");
-    for (int i = 0; i < num_customers; ++i) {
-        for (int j = 0; j < num_resources; ++j) {
-            printf("%d ", maximum[i][j]);
-        }
-        printf("\n");
-    }
-
-    printf("Allocation resources:\n");
-    for (int i = 0; i < num_customers; ++i) {
-        for (int j = 0; j < num_resources; ++j) {
-            printf("%d ", allocation[i][j]);
-        }
-        printf("\n");
-    }
-
-    printf("Need resources:\n");
-    for (int i = 0; i < num_customers; ++i) {
-        for (int j = 0; j < num_resources; ++j) {
-            printf("%d ", need[i][j]);
-        }
-        printf("\n");
-    }
+    fprintf(result_file, "\n");
 }
