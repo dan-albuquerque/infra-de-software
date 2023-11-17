@@ -25,8 +25,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_CUSTOMERS 10
-#define MAX_RESOURCES 10
+#define MAX_CUSTOMERS 20
+#define MAX_RESOURCES 20
 
 int available[MAX_RESOURCES];
 int maximum[MAX_CUSTOMERS][MAX_RESOURCES];
@@ -39,18 +39,28 @@ int releaseResources(int customer, int release[MAX_RESOURCES], int num_resources
 void printState(int num_resources, int num_customers, FILE *result_file);
 void printCustomer(int customer, int num_resources, FILE *result_file);
 void executeComandos(char command[], int num_resources, int num_customers, FILE *command_file, FILE *result_file);
+void getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources);
+
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <num_resource_1> <num_resource_2> ... <num_resource_n>\n", argv[0]);
+        printf("Usage: %s <num_resource_1> <num_resource_2> ... <num_resource_n>\n");
         exit(EXIT_FAILURE);
     }
     
-    int num_resources = argc - 1, num_customers = 5;
+    int num_resources = argc - 1, num_customers = 0 , num_resources_file = 0;
+    getNumCustomersAndResources("customer.txt", &num_customers, &num_resources_file);
+
+    printf("customers: %d\nrecursosFile: %d\nrecursos: %d\n", num_customers, num_resources_file, num_resources);
+
+    if(num_resources != num_resources_file){
+        printf("Incompatibility between customer.txt and command line\n");
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < num_resources; i++) {
         available[i] = atoi(argv[i+1]);
     }
-
+    
     readMaximumFromFile("customer.txt", num_resources, num_customers);
     
     FILE *command_file = fopen("commands.txt", "r");
@@ -74,6 +84,7 @@ int main(int argc, char *argv[]) {
     fclose(command_file);
     return 0;
 }
+
 
 void readMaximumFromFile(const char *filename, int num_resources, int num_customers) {
     FILE *file = fopen(filename, "r");
@@ -103,7 +114,7 @@ void readMaximumFromFile(const char *filename, int num_resources, int num_custom
     fclose(file);
 }
 
-int isSafeState(int num_resources, int num_customers, int available[MAX_RESOURCES], 
+int isBunkerSafe(int num_resources, int num_customers, int available[MAX_RESOURCES], 
 int allocation[MAX_CUSTOMERS][MAX_RESOURCES], int need[MAX_CUSTOMERS][MAX_RESOURCES]) {
 
     int work[MAX_RESOURCES];
@@ -161,7 +172,7 @@ int requestResources(int customer, int request[MAX_RESOURCES], int num_resources
         allocation[customer][i] += request[i];
         need[customer][i] -= request[i];
     }
-    if (!isSafeState(num_resources, num_customers, available, allocation, need)) {
+    if (!isBunkerSafe(num_resources, num_customers, available, allocation, need)) {
         // Request would cause an unsafe state, so undo allocation
         for (int i = 0; i < num_resources; ++i) {
             available[i] += request[i];
@@ -272,7 +283,7 @@ void executeComandos(char command[], int num_resources, int num_customers, FILE 
             }
             fprintf(result_file, "\n");
         } else{
-            fprintf(result_file, "The customer %d release ", customer);
+            fprintf(result_file, "The customer %d released ", customer);
             for (int i = 0; i < num_resources; i++) {
                 fprintf(result_file, "%d ", release[i]);
             }
@@ -283,4 +294,28 @@ void executeComandos(char command[], int num_resources, int num_customers, FILE 
     } else {
         fprintf(result_file, "Invalid command. Please enter RQ, RL, Status, or Exit. \n");
     }
+}
+void getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Fail to read %s\n", filename);
+        exit(EXIT_FAILURE);
+    }
+    char c;
+    while ((c = fgetc(file)) != EOF) {
+        if (c == '\n') {
+            (*num_customers)++;
+            // se for a primeira linha, conta o número de recursos
+            if (*num_customers == 1) {
+                (*num_resources) = 1;
+                while ((c = fgetc(file)) != '\n') {
+                    if (c == ',') {
+                        (*num_resources)++;
+                    }
+                }
+            }
+        }
+    }
+    fclose(file);
+    (*num_customers) +=2 ; // última linha não tem \n e ta com 1 a menos
 }
