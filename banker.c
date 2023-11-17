@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     
     FILE *command_file = fopen("commands.txt", "r");
     if (command_file == NULL) {
-        perror("Error opening file");
+        printf("Fail to read commands.txt\n");
         exit(EXIT_FAILURE);
     }
 
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 void readMaximumFromFile(const char *filename, int num_resources, int num_customers) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        perror("Error opening file");
+        printf("Fail to read customer.txt\n");
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < num_customers; i++) {
