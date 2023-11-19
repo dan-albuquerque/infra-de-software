@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+int verifyCommandsFile(const char *filename);
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
 int allocation[][num_resources],int need[][num_resources]);
@@ -21,30 +27,46 @@ void printCustomer(int customer, int num_resources, FILE *result_file, int maxim
 
 void executeCommands(char command[], int num_resources, int num_customers, FILE *command_file, FILE *result_file, 
     int available[], int allocation[][num_resources], int need[][num_resources], int maximum[][num_resources]);
+
 FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources);
 
-
 int main(int argc, char *argv[]) {
-    int num_resources = argc - 1, num_customers = 0 , num_resources_file = 0;
-    FILE * customer_file = getNumCustomersAndResources("customer.txt", &num_customers, &num_resources_file);
+    /**
+     * ordem de erro:
+     * Fail to read commands.txt
+     * Fail to read customer.txt
+     * Incompatibility between customer.txt and command line
+     * Incompatibility between commands.txt and command line 
+     * 
+     * Remover /n do result
+    */
+    int num_resources_command = verifyCommandsFile("commands.txt");
+    int num_resources = argc - 1, num_customers = 0 , num_resources_customer = 0;
+    FILE *command_file = fopen("commands.txt", "r");
+    if (command_file == NULL) {
+        printf("Fail to read commands.txt\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE * customer_file = getNumCustomersAndResources("customer.txt", &num_customers, &num_resources_customer);
     int available[argc - 1];
     int maximum[num_customers][argc - 1];
     int allocation[num_customers][argc - 1];
     int need[num_customers][argc - 1];
 
-    if(num_resources != num_resources_file){
+    if(num_resources != num_resources_customer){
         printf("Incompatibility between customer.txt and command line\n");
+        exit(EXIT_FAILURE);
+    }
+    if(num_resources != num_resources_command){
+        printf("Incompatibility between commands.txt and command line\n");
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < num_resources; i++) {
         available[i] = atoi(argv[i+1]);
     }
     readCustomerFile(customer_file, num_resources, num_customers, maximum, allocation, need);
-    FILE *command_file = fopen("commands.txt", "r");
-    if (command_file == NULL) {
-        printf("Fail to read commands.txt\n");
-        exit(EXIT_FAILURE);
-    }
+    
     //checar casos de erro e se cria o arquivo
     FILE *result_file = fopen("result.txt", "w");
     if (result_file == NULL) {
@@ -72,13 +94,13 @@ int allocation[][num_resources],int need[][num_resources]) {
     for (int i = 0; i < num_customers; i++) {
         for (int j = 0; j < num_resources; j++) {
             if (fscanf(customer_file, "%d", &maximum[i][j]) != 1) {
-                fprintf(stderr, "Error reading number from file\n");
+                printf("Fail to read customer.txt\n");
                 fclose(customer_file);
                 exit(EXIT_FAILURE);
             }
             if (j < num_resources - 1) {
                 if (fgetc(customer_file) != ',') {
-                    fprintf(stderr, "Error reading comma from file\n");
+                    printf("Fail to read customer.txt\n");
                     fclose(customer_file);
                     exit(EXIT_FAILURE);
                 }
@@ -91,18 +113,18 @@ int allocation[][num_resources],int need[][num_resources]) {
 }
 
 int isBankerSafe(int num_resources, int num_customers, int available[], 
-int allocation[][num_resources], int need[][num_resources]) {
+    int allocation[][num_resources], int need[][num_resources]) {
 
     int work[num_resources];
     int finish[num_customers];
 
-    // Initialize work and finish arrays
     for (int i = 0; i < num_resources; ++i) {
         work[i] = available[i];
     }
     for (int i = 0; i < num_customers; ++i) {
         finish[i] = 0;
     }
+
     int found = 1;
     while (found) {
         found = 0;
@@ -115,7 +137,6 @@ int allocation[][num_resources], int need[][num_resources]) {
                     }
                 }
                 if (j == num_resources) {
-                    // Customer can be satisfied
                     found = 1;
                     finish[i] = 1;
                     for (int k = 0; k < num_resources; ++k) {
@@ -125,7 +146,7 @@ int allocation[][num_resources], int need[][num_resources]) {
             }
         }
     }
-    // Check if all customers were satisfied
+
     for (int i = 0; i < num_customers; ++i) {
         if (!finish[i]) {
             return 0; // Unsafe state
@@ -133,15 +154,16 @@ int allocation[][num_resources], int need[][num_resources]) {
     }
     return 1; // Safe state
 }
+
 //ver com erico a ordem
 int requestResources(int customer, int request[], int num_resources, int num_customers, 
     int available[],int need[][num_resources], int allocation[][num_resources]) {
     for (int i = 0; i < num_resources; ++i) {
         if (request[i] > available[i]) {
-            return 0; // /quantidade solicitada excede a quantidade disponivel
+            return 0; // /quantidade solicitada excede available
         }
         if (request[i] > need[customer][i]) {
-            return -1; //quantidade solicitada excede a quantidade necessária
+            return -1; //quantidade solicitada excede maximum need
         }
     }
     for (int i = 0; i < num_resources; ++i) {
@@ -274,7 +296,7 @@ void executeCommands(char command[], int num_resources, int num_customers, FILE 
             for (int i = 0; i < num_resources; i++) {
                 fprintf(result_file, "%d ", release[i]);
             }
-            fprintf(result_file, "was denied because exceed its maximum allocation \n", customer);
+            fprintf(result_file, "was denied because exceed its maximum allocation \n");
         }
 
     } else if (strcmp(command, "*") == 0) {
@@ -310,4 +332,31 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
     (*num_customers) +=2 ; // última linha não tem \n e ta com 1 a menos
     rewind(customer_file);
     return customer_file;
+}
+
+int verifyCommandsFile(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Fail to read %s\n", filename);
+        exit(EXIT_FAILURE);
+    }
+
+      char line[256]; // Assuming a maximum line length of 255 characters
+    if (fgets(line, sizeof(line), file) == NULL) {
+        printf("Fail to read %s\n", filename);
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    fclose(file);
+
+    // Count the number of digits in the first line
+    int count = 0;
+    for (const char *ptr = line; *ptr != '\0'; ++ptr) {
+        if (*ptr >= '0' && *ptr <= '9') {
+            count++;
+        }
+    }
+
+    return count - 1;
 }
