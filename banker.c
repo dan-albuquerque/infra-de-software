@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 int verifyCommandsFile(const char *filename);
 
@@ -78,9 +76,16 @@ int main(int argc, char *argv[]) {
     while (fscanf(command_file, "%s", command) == 1) {
         executeCommands(command, num_resources, num_customers, command_file, result_file, available, allocation, need, maximum);
     }
-
     fclose(result_file);
     fclose(command_file);
+    FILE *temp_file = fopen("result.txt", "r+");
+    if (temp_file == NULL) {
+        printf("Fail to open result.txt\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(temp_file, -2, SEEK_END);
+    ftruncate(fileno(temp_file), ftell(temp_file));
+    fclose(temp_file);
     return 0;
 }
 
@@ -304,7 +309,9 @@ void executeCommands(char command[], int num_resources, int num_customers, FILE 
     } else {
         fprintf(result_file, "Invalid command. Please enter RQ, RL, Status, or Exit. \n");
     }
+    
 }
+
 FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources) {
     FILE *customer_file = fopen(filename, "r");
     if (customer_file == NULL) {
