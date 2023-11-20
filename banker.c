@@ -4,7 +4,8 @@
 #include <ctype.h>
 #include <unistd.h>
 
-int verifyCommandsFile(const char *filename);
+
+int verifyCommandsFile(const char *nomeArquivo);
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
 int allocation[][num_resources],int need[][num_resources]);
@@ -20,7 +21,7 @@ int releaseResources(int customer, int release[], int num_resources, int allocat
 void printState(int num_resources, int num_customers, FILE *result_file, int available[], 
     int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
 
-void printCustomer(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
+void printfTable(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
     int allocation[][num_resources], int need[][num_resources]);
 
 void executeCommands(char command[], int num_resources, int num_customers, FILE *command_file, FILE *result_file, 
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
      * Remover /n do result
     */
     int num_resources_command = verifyCommandsFile("commands.txt");
+
     int num_resources = argc - 1, num_customers = 0 , num_resources_customer = 0;
     FILE *command_file = fopen("commands.txt", "r");
     if (command_file == NULL) {
@@ -68,7 +70,6 @@ int main(int argc, char *argv[]) {
     //checar casos de erro e se cria o arquivo
     FILE *result_file = fopen("result.txt", "w");
     if (result_file == NULL) {
-        printf("Fail to write result.txt\n");
         exit(EXIT_FAILURE);
     }
 
@@ -78,17 +79,8 @@ int main(int argc, char *argv[]) {
     }
     fclose(result_file);
     fclose(command_file);
-    FILE *temp_file = fopen("result.txt", "r+");
-    if (temp_file == NULL) {
-        printf("Fail to open result.txt\n");
-        exit(EXIT_FAILURE);
-    }
-    fseek(temp_file, -2, SEEK_END);
-    ftruncate(fileno(temp_file), ftell(temp_file));
-    fclose(temp_file);
     return 0;
 }
-
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
 int allocation[][num_resources],int need[][num_resources]) {
@@ -213,7 +205,7 @@ void printState(int num_resources, int num_customers, FILE *result_file, int ava
     int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]) {
     fprintf(result_file, "MAXIMUM | ALLOCATION | NEED\n");
     for (int i = 0; i < num_customers; ++i) {
-        printCustomer(i, num_resources, result_file, maximum, allocation, need);
+        printfTable(i, num_resources, result_file, maximum, allocation, need);
     }
     fprintf(result_file, "AVAILABLE ");
     for (int i = 0; i < num_resources; ++i) {
@@ -222,7 +214,7 @@ void printState(int num_resources, int num_customers, FILE *result_file, int ava
     fprintf(result_file, "\n");
 }
 
-void printCustomer(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
+void printfTable(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
     int allocation[][num_resources], int need[][num_resources]) {
     for (int j = 0; j < num_resources; ++j) {
         fprintf(result_file, "%d ", maximum[customer][j]);
@@ -307,9 +299,12 @@ void executeCommands(char command[], int num_resources, int num_customers, FILE 
     } else if (strcmp(command, "*") == 0) {
         printState(num_resources, num_customers, result_file, available, maximum, allocation, need);
     } else {
-        fprintf(result_file, "Invalid command. Please enter RQ, RL, Status, or Exit. \n");
+        printf("Fail to read commands.txt\n");
+        fclose(command_file);
+        fclose(result_file);
+        remove("result.txt");
+        exit(EXIT_FAILURE);
     }
-    
 }
 
 FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources) {
@@ -341,29 +336,42 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
     return customer_file;
 }
 
+
 int verifyCommandsFile(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
+    int colunasEsperadas = -1;
+
+    FILE *commands_file = fopen(filename, "r");
+    if (commands_file == NULL) {
         printf("Fail to read %s\n", filename);
         exit(EXIT_FAILURE);
     }
 
-      char line[256]; // Assuming a maximum line length of 255 characters
-    if (fgets(line, sizeof(line), file) == NULL) {
-        printf("Fail to read %s\n", filename);
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
+    char linha[1024];  // Tamanho máximo da linha
+    int numeroLinhas = 0;
 
-    fclose(file);
+    while (fgets(linha, sizeof(linha), commands_file) != NULL) {
+        if(strcmp(linha, "*\n") == 0) {
+            continue;
+        }
+        numeroLinhas++;
 
-    // Count the number of digits in the first line
-    int count = 0;
-    for (const char *ptr = line; *ptr != '\0'; ++ptr) {
-        if (*ptr >= '0' && *ptr <= '9') {
-            count++;
+        // Contar o número de colunas na linha
+        int colunas = 0;
+        char *token = strtok(linha, " ");
+        while (token != NULL) {
+            colunas++;
+            token = strtok(NULL, " ");
+        }
+
+        // Verificar se o número de colunas é consistente com as esperadas
+        if (colunasEsperadas == -1) {
+            colunasEsperadas = colunas;
+        } else if (colunas != colunasEsperadas) {
+            printf("Fail to read %s\n", filename);
+            fclose(commands_file);
+            exit(EXIT_FAILURE);
         }
     }
-
-    return count - 1;
+    fclose(commands_file);
+    return colunasEsperadas - 2;// -2 porque o arquivo tem 2 colunas a mais, a primeira é o comando e a segunda é o numero do cliente
 }
