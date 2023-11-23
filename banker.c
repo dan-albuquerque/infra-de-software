@@ -4,11 +4,20 @@
 #include <ctype.h>
 #include <unistd.h>
 
+typedef struct NumberFormats{
+    int maximum;
+    int allocation;
+    int need;
+} NumberFormats;
+
+NumberFormats *get_numbers_formats(int num_resources, int num_customers, int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
+
+NumberFormats get_size_line_numbers(NumberFormats *numbers_formats, int num_resources);
 
 int verifyCommandsFile(const char *nomeArquivo);
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
-int allocation[][num_resources],int need[][num_resources]);
+    int allocation[][num_resources],int need[][num_resources]);
 
 int isBankerSafe(int num_resources, int num_customers, int available[], 
     int allocation[][num_resources], int need[][num_resources]);
@@ -20,9 +29,6 @@ int releaseResources(int customer, int release[], int num_resources, int allocat
 
 void printState(int num_resources, int num_customers, FILE *result_file, int available[], 
     int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
-
-void printfTable(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
-    int allocation[][num_resources], int need[][num_resources]);
 
 void executeCommands(char command[], int num_resources, int num_customers, FILE *command_file, FILE *result_file, 
     int available[], int allocation[][num_resources], int need[][num_resources], int maximum[][num_resources]);
@@ -37,7 +43,7 @@ int main(int argc, char *argv[]) {
      * Incompatibility between customer.txt and command line
      * Incompatibility between commands.txt and command line 
      * 
-     * Remover /n do result
+     *
     */
     int num_resources_command = verifyCommandsFile("commands.txt");
 
@@ -73,23 +79,26 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    char command[argc+20]; //ALTERAR
+    char command[argc+22]; //ALTERAR
     while (fscanf(command_file, "%s", command) == 1) {
         executeCommands(command, num_resources, num_customers, command_file, result_file, available, allocation, need, maximum);
     }
+
     fclose(result_file);
     fclose(command_file);
     return 0;
 }
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
-int allocation[][num_resources],int need[][num_resources]) {
+    int allocation[][num_resources],int need[][num_resources]) {
     if (customer_file == NULL) {
         printf("Fail to read customer.txt\n");
         exit(EXIT_FAILURE);
     }
+
     for (int i = 0; i < num_customers; i++) {
         for (int j = 0; j < num_resources; j++) {
+
             if (fscanf(customer_file, "%d", &maximum[i][j]) != 1) {
                 printf("Fail to read customer.txt\n");
                 fclose(customer_file);
@@ -106,6 +115,7 @@ int allocation[][num_resources],int need[][num_resources]) {
             need[i][j] = maximum[i][j];
         }
     }
+
     fclose(customer_file);
 }
 
@@ -143,7 +153,6 @@ int isBankerSafe(int num_resources, int num_customers, int available[],
             }
         }
     }
-
     for (int i = 0; i < num_customers; ++i) {
         if (!finish[i]) {
             return 0; // Unsafe state
@@ -152,15 +161,21 @@ int isBankerSafe(int num_resources, int num_customers, int available[],
     return 1; // Safe state
 }
 
-//ver com erico a ordem
+/**
+ * Ordem:
+ * -1 - se o customer tem permissão para alocar os recursos; 
+ *  0 - se há recursos suficientes no sistema para a requisição; 
+ *  2 - se a requisição garante um estado seguro
+*/
 int requestResources(int customer, int request[], int num_resources, int num_customers, 
     int available[],int need[][num_resources], int allocation[][num_resources]) {
     for (int i = 0; i < num_resources; ++i) {
-        if (request[i] > available[i]) {
-            return 0; // /quantidade solicitada excede available
-        }
+        
         if (request[i] > need[customer][i]) {
             return -1; //quantidade solicitada excede maximum need
+        }
+        if (request[i] > available[i]) {
+            return 0; // /quantidade solicitada excede available
         }
     }
     for (int i = 0; i < num_resources; ++i) {
@@ -169,7 +184,7 @@ int requestResources(int customer, int request[], int num_resources, int num_cus
         need[customer][i] -= request[i];
     }
     if (!isBankerSafe(num_resources, num_customers, available, allocation, need)) {
-        // Request would cause an unsafe state, so undo allocation
+        // refaz a alocacao por estar em unsafe state
         for (int i = 0; i < num_resources; ++i) {
             available[i] += request[i];
             allocation[customer][i] -= request[i];
@@ -201,31 +216,47 @@ int releaseResources(int customer, int release[], int num_resources, int allocat
     return 1; 
 }
 
+
 void printState(int num_resources, int num_customers, FILE *result_file, int available[], 
     int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]) {
-    fprintf(result_file, "MAXIMUM | ALLOCATION | NEED\n");
-    for (int i = 0; i < num_customers; ++i) {
-        printfTable(i, num_resources, result_file, maximum, allocation, need);
+
+    NumberFormats *numbers_formats = get_numbers_formats(num_resources, num_customers, maximum, allocation, need);
+
+    NumberFormats size_line_numbers = get_size_line_numbers(numbers_formats, num_resources);
+
+    fprintf(result_file, "MAXIMUM ");
+    for (int i = 8; i < size_line_numbers.maximum; i++) {
+        fprintf(result_file, " ");
+    }
+    fprintf(result_file, "| ALLOCATION ");
+    for (int i = 11; i < size_line_numbers.allocation; i++) {
+        fprintf(result_file, " ");
+    }
+    fprintf(result_file, "| NEED\n");
+    for (int i = 0; i < num_customers; i++) {
+        for (int j = 0; j < num_resources; j++) {
+            fprintf(result_file, "%*d ", numbers_formats[j].maximum, maximum[i][j]);
+        }
+        for (int j = size_line_numbers.maximum; j < 8; j++) {
+            fprintf(result_file, " ");
+        }
+        fprintf(result_file, "| ");
+        
+        for (int j = 0; j < num_resources; j++) {
+            fprintf(result_file, "%*d ", numbers_formats[j].allocation, allocation[i][j]);
+        }
+        for (int j = size_line_numbers.allocation; j < 11; j++) {
+            fprintf(result_file, " ");
+        }
+        fprintf(result_file, "| ");
+        for (int j = 0; j < num_resources; j++) {
+            fprintf(result_file, "%*d ", numbers_formats[j].need, need[i][j]);
+        }
+        fprintf(result_file, "\n");
     }
     fprintf(result_file, "AVAILABLE ");
-    for (int i = 0; i < num_resources; ++i) {
+    for (int i = 0; i < num_resources; i++) {
         fprintf(result_file, "%d ", available[i]);
-    }
-    fprintf(result_file, "\n");
-}
-
-void printfTable(int customer, int num_resources, FILE *result_file, int maximum[][num_resources],
-    int allocation[][num_resources], int need[][num_resources]) {
-    for (int j = 0; j < num_resources; ++j) {
-        fprintf(result_file, "%d ", maximum[customer][j]);
-    }
-    fprintf(result_file, "  | ");
-    for (int j = 0; j < num_resources; ++j) {
-        fprintf(result_file, "%d ", allocation[customer][j]);
-    }
-    fprintf(result_file, "     | ");
-    for (int j = 0; j < num_resources; ++j) {
-        fprintf(result_file, "%d ", need[customer][j]);
     }
     fprintf(result_file, "\n");
 }
@@ -234,12 +265,21 @@ void executeCommands(char command[], int num_resources, int num_customers, FILE 
     int available[], int allocation[][num_resources], int need[][num_resources], int maximum[][num_resources]){
 
     int customer, request[num_resources], release[num_resources];
-
+    /**
+     * requests
+    */
     if (strcmp(command, "RQ") == 0) {
         fscanf(command_file, "%d", &customer);
         for (int i = 0; i < num_resources; ++i) {
             fscanf(command_file, "%d", &request[i]);
         }
+        
+        /**
+         * Ordem:
+         * -1 - se o customer tem permissão para alocar os recursos; 
+         *  0 - se há recursos suficientes no sistema para a requisição; 
+         *  2 - se a requisição garante um estado seguro
+        */
         int banker_safe = requestResources(customer, request, num_resources, num_customers, available, need, allocation);
         
         if (banker_safe == -1) {
@@ -274,7 +314,9 @@ void executeCommands(char command[], int num_resources, int num_customers, FILE 
             }
             fprintf(result_file, "\n");
         }
-
+    /**
+     * release
+    */
     } else if (strcmp(command, "RL") == 0) {
         fscanf(command_file, "%d", &customer);
         for (int i = 0; i < num_resources; ++i) {
@@ -315,11 +357,13 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
     }
     char c;
     while ((c = fgetc(customer_file)) != EOF) {
+
         if (c == '\n') {
             (*num_customers)++;
             // se for a primeira linha, conta o número de recursos
             if (*num_customers == 1) {
                 (*num_resources) = 1;
+
                 while ((c = fgetc(customer_file)) != '\n') {
                     if (c == ',') {
                         (*num_resources)++;
@@ -331,47 +375,129 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
             exit(EXIT_FAILURE);
         }
     }
-    (*num_customers) +=2 ; // última linha não tem \n e ta com 1 a menos
+    (*num_customers) += 2 ; // última linha não tem \n e ta com 1 a menos
     rewind(customer_file);
     return customer_file;
 }
 
 
 int verifyCommandsFile(const char *filename) {
-    int colunasEsperadas = -1;
 
     FILE *commands_file = fopen(filename, "r");
     if (commands_file == NULL) {
         printf("Fail to read %s\n", filename);
         exit(EXIT_FAILURE);
     }
-
-    char linha[1024];  // Tamanho máximo da linha
+    int colunasEsperadas = -1;
+    char *linha = NULL;
+    size_t tamanhoLinha = 0;
     int numeroLinhas = 0;
 
-    while (fgets(linha, sizeof(linha), commands_file) != NULL) {
+    while (getline(&linha, &tamanhoLinha, commands_file) != -1) {
+        
         if(strcmp(linha, "*\n") == 0) {
             continue;
         }
         numeroLinhas++;
-
+        if (linha[strlen(linha) - 1] == '\n') {
+            linha[strlen(linha) - 1] = '\0';
+        }
+        char *linhaAux = strdup(linha);
         // Contar o número de colunas na linha
         int colunas = 0;
         char *token = strtok(linha, " ");
-        while (token != NULL) {
+        while (token) {
             colunas++;
             token = strtok(NULL, " ");
         }
-
-        // Verificar se o número de colunas é consistente com as esperadas
+        // Verificar se o número de colunas é igual em todas as linhas
         if (colunasEsperadas == -1) {
             colunasEsperadas = colunas;
         } else if (colunas != colunasEsperadas) {
             printf("Fail to read %s\n", filename);
             fclose(commands_file);
+            free(linha);
+            free(linhaAux);
             exit(EXIT_FAILURE);
         }
+        // Loop para verificar caracteres fora do formato esperado
+        for (int i = 0; i < strlen(linhaAux); i++) {
+            if (!isdigit(linhaAux[i]) && linhaAux[i] != ' ' && linhaAux[i] != 'R' && linhaAux[i] != 'Q' && linhaAux[i] != 'L' && linhaAux[i] != '*') {
+                printf("Fail to read %s\n", filename);
+                fclose(commands_file);
+                free(linha);
+                free(linhaAux);
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // Verificar se a linha começa com as strings "RQ", "RL" ou "*"
+        if (strncmp(linhaAux, "RQ", 2) != 0 && strncmp(linhaAux, "RL", 2) != 0 && strncmp(linhaAux, "*", 1) != 0) {
+            printf("Fail to read %s\n", filename);
+            fclose(commands_file);
+            free(linha);
+            free(linhaAux);
+            exit(EXIT_FAILURE);
+        }
+        free(linhaAux);
     }
+
     fclose(commands_file);
-    return colunasEsperadas - 2;// -2 porque o arquivo tem 2 colunas a mais, a primeira é o comando e a segunda é o numero do cliente
+    free(linha);
+    return colunasEsperadas - 2; // -2 porque o arquivo tem 2 colunas a mais, a primeira é o comando e a segunda é o numero do cliente
+}
+NumberFormats *get_numbers_formats(int num_resources, int num_customers, int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]) {
+
+    NumberFormats *numbers_formats = (NumberFormats*)malloc(num_resources * sizeof(NumberFormats));
+
+    for (int i = 0; i < num_resources; i++) {
+        NumberFormats biggest_numbers = {1, 1, 1};
+        for (int j = 0; j < num_customers; j++) {
+
+            if (maximum[j][i] > biggest_numbers.maximum) {
+                biggest_numbers.maximum = maximum[j][i];
+            }
+            if (allocation[j][i] > biggest_numbers.allocation) {
+                biggest_numbers.allocation = allocation[j][i];
+            }
+
+            if (need[j][i] > biggest_numbers.need) {
+                biggest_numbers.need = need[j][i];
+            }
+        }
+        numbers_formats[i].maximum = 0;
+        while (biggest_numbers.maximum > 0) {
+            biggest_numbers.maximum /= 10;
+            numbers_formats[i].maximum++;
+        }
+        numbers_formats[i].allocation = 0;
+        while (biggest_numbers.allocation > 0) {
+            biggest_numbers.allocation /= 10;
+            numbers_formats[i].allocation++;
+        }
+        numbers_formats[i].need= 0;
+        while (biggest_numbers.need > 0) {
+            biggest_numbers.need /= 10;
+            numbers_formats[i].need++;
+        }
+    }
+
+    return numbers_formats;
+}
+
+NumberFormats get_size_line_numbers(NumberFormats *numbers_formats, int num_resources) {
+
+    NumberFormats size_line_numbers = {0, 0, 0};
+
+    for (int i = 0; i < num_resources; i++) {
+        size_line_numbers.maximum += numbers_formats[i].maximum;
+        size_line_numbers.maximum++;
+
+        size_line_numbers.allocation += numbers_formats[i].allocation;
+        size_line_numbers.allocation++;
+
+        size_line_numbers.need += numbers_formats[i].need;
+        size_line_numbers.need++;
+    }
+    return size_line_numbers;
 }
