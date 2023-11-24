@@ -211,7 +211,7 @@ int releaseResources(int customer, int release[], int num_resources, int allocat
 
 
 void printState(int num_resources, int num_customers, FILE *result_file, int available[], 
-    int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]) {
+                 int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]) {
 
     NumberFormats *numbers_formats = get_numbers_formats(num_resources, num_customers, maximum, allocation, need);
 
