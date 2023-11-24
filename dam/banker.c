@@ -370,20 +370,6 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
     }
     (*num_customers) += 2 ; // última linha não tem \n e ta com 1 a menos
 
-    // Check for extra commas
-    // rewind(customer_file);
-    // int comma_count = 0;
-    // while ((c = fgetc(customer_file)) != EOF) {
-    //     if (c == ',') {
-    //         comma_count++;
-    //     }
-    // }
-    // if (comma_count != ((*num_customers - 2) * (*num_resources) + 1)) {
-    //     printf("Invalid format in %s: Extra commas found with %d\n", filename, comma_count);
-    //     printf("expected %d\n", (*num_customers - 2) * (*num_resources));
-    //     exit(EXIT_FAILURE);
-    // }
-
     rewind(customer_file);
     return customer_file;
 }
