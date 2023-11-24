@@ -10,43 +10,36 @@ typedef struct NumberFormats{
     int need;
 } NumberFormats;
 
-NumberFormats *get_numbers_formats(int num_resources, int num_customers, int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
+NumberFormats *get_numbers_formats(int num_resources, int num_customers, int maximum[][num_resources], 
+                                    int allocation[][num_resources], int need[][num_resources]);
 
 NumberFormats get_size_line_numbers(NumberFormats *numbers_formats, int num_resources);
 
-int verifyCommandsFile(const char *nomeArquivo);
+int verifyCommandsFile(const char *nomeArquivo, int * size_comand);
 
 void readCustomerFile(FILE *customer_file, int num_resources, int num_customers,int maximum[][num_resources],
-    int allocation[][num_resources],int need[][num_resources]);
+                        int allocation[][num_resources],int need[][num_resources]);
 
 int isBankerSafe(int num_resources, int num_customers, int available[], 
-    int allocation[][num_resources], int need[][num_resources]);
+                    int allocation[][num_resources], int need[][num_resources]);
 int requestResources(int customer, int request[], int num_resources, int num_customers, 
-    int available[],int need[][num_resources], int allocation[][num_resources]);
+                        int available[],int need[][num_resources], int allocation[][num_resources]);
 
 int releaseResources(int customer, int release[], int num_resources, int allocation[][num_resources], 
-    int need[][num_resources], int available[]);
+                        int need[][num_resources], int available[]);
 
 void printState(int num_resources, int num_customers, FILE *result_file, int available[], 
-    int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
+                    int maximum[][num_resources], int allocation[][num_resources], int need[][num_resources]);
 
 void executeCommands(char command[], int num_resources, int num_customers, FILE *command_file, FILE *result_file, 
-    int available[], int allocation[][num_resources], int need[][num_resources], int maximum[][num_resources]);
+                        int available[], int allocation[][num_resources], int need[][num_resources], int maximum[][num_resources]);
 
 FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int *num_resources);
 
 int main(int argc, char *argv[]) {
-    /**
-     * ordem de erro:
-     * Fail to read commands.txt
-     * Fail to read customer.txt
-     * Incompatibility between customer.txt and command line
-     * Incompatibility between commands.txt and command line 
-     * 
-     *
-    */
-    int num_resources_command = verifyCommandsFile("commands.txt");
-
+    int size_comand = 0;
+    int num_resources_command = verifyCommandsFile("commands.txt", &size_comand);
+    char command[size_comand];
     int num_resources = argc - 1, num_customers = 0 , num_resources_customer = 0;
     FILE *command_file = fopen("commands.txt", "r");
     if (command_file == NULL) {
@@ -79,7 +72,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    char command[argc+22]; //ALTERAR
+    
     while (fscanf(command_file, "%s", command) == 1) {
         executeCommands(command, num_resources, num_customers, command_file, result_file, available, allocation, need, maximum);
     }
@@ -376,12 +369,27 @@ FILE * getNumCustomersAndResources(const char *filename, int *num_customers, int
         }
     }
     (*num_customers) += 2 ; // última linha não tem \n e ta com 1 a menos
+
+    // Check for extra commas
+    // rewind(customer_file);
+    // int comma_count = 0;
+    // while ((c = fgetc(customer_file)) != EOF) {
+    //     if (c == ',') {
+    //         comma_count++;
+    //     }
+    // }
+    // if (comma_count != ((*num_customers - 2) * (*num_resources) + 1)) {
+    //     printf("Invalid format in %s: Extra commas found with %d\n", filename, comma_count);
+    //     printf("expected %d\n", (*num_customers - 2) * (*num_resources));
+    //     exit(EXIT_FAILURE);
+    // }
+
     rewind(customer_file);
     return customer_file;
 }
 
 
-int verifyCommandsFile(const char *filename) {
+int verifyCommandsFile(const char *filename, int * size_comand) {
 
     FILE *commands_file = fopen(filename, "r");
     if (commands_file == NULL) {
@@ -421,7 +429,9 @@ int verifyCommandsFile(const char *filename) {
             exit(EXIT_FAILURE);
         }
         // Loop para verificar caracteres fora do formato esperado
-        for (int i = 0; i < strlen(linhaAux); i++) {
+        int tamanhoLinhaAux = strlen(linhaAux);
+        *size_comand = tamanhoLinhaAux;
+        for (int i = 0; i < tamanhoLinhaAux; i++) {
             if (!isdigit(linhaAux[i]) && linhaAux[i] != ' ' && linhaAux[i] != 'R' && linhaAux[i] != 'Q' && linhaAux[i] != 'L' && linhaAux[i] != '*') {
                 printf("Fail to read %s\n", filename);
                 fclose(commands_file);
